@@ -1,2 +1,2 @@
 # Minor_Project
-Deepfake Detection -- Abhi
+Deepfake Detection 
