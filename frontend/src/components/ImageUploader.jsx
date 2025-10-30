@@ -1,11 +1,13 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { predictWithFormData } from '../services/api.js'
+import { predictWithFormData, warmUp } from '../services/api.js'
 
 const DEFAULT_ENDPOINT = 'https://minor-project-petx.onrender.com/predictImage'
 const ALT_ENDPOINT = 'https://minor-project-petx.onrender.com/predict'
 
 export default function ImageUploader() {
-	const [endpoint, setEndpoint] = useState(DEFAULT_ENDPOINT)
+	const [endpoint, setEndpoint] = useState(
+		window.localStorage.getItem('petx:endpoint') || DEFAULT_ENDPOINT
+	)
 	const [status, setStatus] = useState('Waiting for action…')
 	const [isLoading, setIsLoading] = useState(false)
 	const [previewUrl, setPreviewUrl] = useState('')
@@ -57,8 +59,11 @@ export default function ImageUploader() {
 		formData.append(fieldName, file)
 
 		setIsLoading(true)
-		setStatus('Uploading and predicting...')
+		setStatus('Warming backend and predicting...')
 		try {
+			// Wake server (Render cold start) – ignore errors
+			await warmUp(endpoint)
+			setStatus('Uploading and predicting...')
 			const result = await predictWithFormData(endpoint, formData)
 			const parts = []
 			if (result && Object.prototype.hasOwnProperty.call(result, 'prediction')) parts.push(`Prediction: ${result.prediction}`)
@@ -66,7 +71,10 @@ export default function ImageUploader() {
 			setStatus(parts.length ? parts.join('\n') : JSON.stringify(result, null, 2))
 		} catch (err) {
 			const msg = err?.message || 'Unknown error'
-			setStatus(`Error: ${msg}`)
+			const extra = msg.includes('Failed to fetch')
+				? '\nTip: Check the endpoint URL, server availability, and CORS. Try opening the URL in your browser and ensure /docs loads, then retry.'
+				: ''
+			setStatus(`Error: ${msg}${extra}`)
 		} finally {
 			setIsLoading(false)
 		}
@@ -114,17 +122,23 @@ export default function ImageUploader() {
 			)}
 
 			<div className="endpoint">
-				<label htmlFor="endpointSelect">Endpoint:</label>{' '}
-				<select
-					id="endpointSelect"
+				<label htmlFor="endpointInput">Endpoint:</label>{' '}
+				<input
+					id="endpointInput"
 					className="btn"
+					style={{ width: '100%' }}
+					list="endpointOptions"
 					value={endpoint}
-					onChange={(e) => setEndpoint(e.target.value)}
-					title="Choose API endpoint"
-				>
+					onChange={(e) => {
+						setEndpoint(e.target.value)
+						try { window.localStorage.setItem('petx:endpoint', e.target.value) } catch {}
+					}}
+					title="Enter full URL to your API endpoint"
+				/>
+				<datalist id="endpointOptions">
 					<option value={DEFAULT_ENDPOINT}>/predictImage (field: image)</option>
 					<option value={ALT_ENDPOINT}>/predict (field: file)</option>
-				</select>
+				</datalist>
 			</div>
 		</div>
 	)
