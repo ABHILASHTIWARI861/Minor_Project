@@ -1,0 +1,12 @@
+tf-env
+/Dataset
+__pycache__/
+*.pyc
+.env
+.vscode/
+instance
+*.sqlite3
+.DS_Store
+Model.h5
+*.h5
+/API/Model.h5
